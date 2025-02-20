@@ -3,6 +3,7 @@
 add_library(O2QcFV0)
 
 target_sources(O2QcFV0 PRIVATE src/TH1ReductorLaser.cxx
+                               src/RecPointsQcTask.cxx
                                src/DigitQcTaskLaser.cxx
                                src/DigitQcTask.cxx
                                src/GenericCheck.cxx
@@ -32,6 +33,7 @@ install(TARGETS O2QcFV0
 
 add_root_dictionary(O2QcFV0
   HEADERS include/FV0/TH1ReductorLaser.h
+	        include/FV0/RecPointsQcTask.h
           include/FV0/DigitQcTaskLaser.h
           include/FV0/DigitQcTask.h
           include/FV0/PostProcTask.h

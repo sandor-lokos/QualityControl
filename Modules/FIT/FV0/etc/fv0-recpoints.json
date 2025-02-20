@@ -1,0 +1,41 @@
+{
+  "qc": {
+    "config": {
+      "database": {
+        "implementation": "CCDB",
+        "host": "ccdb-test.cern.ch:8080",
+        "#host": "http://localhost:8080",
+        "username": "not_applicable",
+        "password": "not_applicable",
+        "name": "not_applicable"
+      },
+      "monitoring": {
+        "url": "infologger:///debug?qc"
+      },
+      "consul": {
+        "url": ""
+      },
+      "conditionDB": {
+        "url": "alice-ccdb.cern.ch"
+      },
+      "bookkeeping": {
+        "url": ""
+      }
+    },
+    "tasks": {
+      "RecPoints": {
+        "active": "true",
+        "className": "o2::quality_control_modules::fv0::RecPointsQcTask",
+        "moduleName": "QcFV0",
+        "detectorName": "FV0",
+        "cycleDurationSeconds": "60",
+				"maxNumberCycles": "-1",
+        "resetAfterCycles": "1",
+        "dataSource": {
+          "type": "direct",
+          "query": "recpoints:FV0/RECPOINTS/0;channels:FV0/RECCHDATA/0"
+        }
+      }
+    }
+  }
+}
