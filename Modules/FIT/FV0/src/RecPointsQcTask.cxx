@@ -39,54 +39,62 @@ using namespace o2::quality_control_modules::fit;
 
 RecPointsQcTask::~RecPointsQcTask()
 {
-	// delete mHistogram
+	// delete mHistColGloMeanTime
 }
 
 void RecPointsQcTask::initialize(o2::framework::InitContext& /*ctx*/)
 {
-  // THUS FUNCTION BODY IS AN EXAMPLE. PLEASE REMOVE EVERYTHING YOU DO NOT NEED.
-
-  // This is how logs are created. QcInfoLogger is used. In production, FairMQ logs will go to InfoLogger as well.
   ILOG(Debug, Devel) << "initialize RecPointsQcTask" << ENDM;
   ILOG(Debug, Support) << "A debug targeted for support" << ENDM;
   ILOG(Info, Ops) << "An Info log targeted for operators" << ENDM;
 
-  // This creates and registers a histogram for publication at the end of each cycle, until the end of the task lifetime
-  mHistogram = std::make_unique<TH1F>("Time_test", "FV0 time", 40, -20, 20);
-  getObjectsManager()->startPublishing(mHistogram.get());
-
-  // try {
-    // getObjectsManager()->addMetadata(mHistogram->GetName(), "custom", "34");
-  // } catch (...) {
-    // some methods can throw exceptions, it is indicated in their doxygen.
-    // In case it is recoverable, it is recommended to catch them and do something meaningful.
-    // Here we don't care that the metadata was not added and just log the event.
-    // ILOG(Warning, Support) << "Metadata could not be added to " << mHistogram->GetName() << ENDM;
-  // }
+	// To be implemented:
+	//	Done --> * Amplitude vs channel TH2D log-yz
+	//	Done --> * Sum of amplitude (TCM) TH1D log-log
+	//	Done --> * Time vs channel TH2D log-z
+	//	Done --> * Average time (TCM) TH1D
+	//	Done --> * Number of channels (TCM)
+	//	Done --> * ChannelID stat TH1I
+	// * Triggers from TCM
+	
+  mHistColGloMeanTime = std::make_unique<TH1F>("CollisionGlobalMeanTime", "FV0 global collision time", 400, -2000, 2000);
+	mHistTime2Ch = std::make_unique<TH2F>("TimePerChannel", "FV0 Time vs Channel;Channel;Time (ps)", sNCHANNELS_FV0_PLUSREF, 0, sNCHANNELS_FV0_PLUSREF, 4100, -2050, 2050);
+	mHistChannel = std::make_unique<TH1I>("ChannelOccupancy", "FV0 Number of channels;N_{ch};", 48, 0, 48);
+	mHistChStat = std::make_unique<TH1I>("ChannelStat", "FV0 ChannelID stat;N_{ch};", 48, 0, 48);
+	mHistAvgTime = std::make_unique<TH1I>("AvgTime", "FV0 Average time ;", 4000, -2000, 2000);
+	mHistAvgAmpl = std::make_unique<TH1I>("AvgAmpl", "FV0 Average amplitude ;", 1000, 0, 1000);
+	mHistSumAmp = std::make_unique<TH1I>("SumAmp", "FV0 sum of amplitude ;", 10000, 0, 10000);
+	mHistAmpl2Ch = std::make_unique<TH2F>("AmplPerChannel", "FV0 Ampl vs Channel;Channel;Amplitude", sNCHANNELS_FV0_PLUSREF, 0, sNCHANNELS_FV0_PLUSREF, 2000, 0, 2000);
+	mHistTrigger = std::make_unique<TH1F>("TriggerSignals", "Triggers from TCM ;", 8, 0.5, 8.5);
+  mHistTime2Ch->SetOption("colz");
+  mHistAmpl2Ch->SetOption("colz");
+	
+	for (const auto& entry : mTechMapTrgBits) {
+    mHistTrigger->GetXaxis()->SetBinLabel(entry.first + 1, entry.second.c_str());
+	}
+	
+  getObjectsManager()->startPublishing(mHistColGloMeanTime.get());
+	getObjectsManager()->startPublishing(mHistTime2Ch.get());
+	getObjectsManager()->startPublishing(mHistChannel.get());
+	getObjectsManager()->startPublishing(mHistChStat.get());
+	getObjectsManager()->startPublishing(mHistAvgTime.get());
+	getObjectsManager()->startPublishing(mHistAvgAmpl.get());
+	getObjectsManager()->startPublishing(mHistSumAmp.get());
+	getObjectsManager()->startPublishing(mHistAmpl2Ch.get());
+	getObjectsManager()->startPublishing(mHistTrigger.get());
 }
 
 void RecPointsQcTask::startOfActivity(const Activity& activity)
 {
-  // THIS FUNCTION BODY IS AN EXAMPLE. PLEASE REMOVE EVERYTHING YOU DO NOT NEED.
-  // ILOG(Debug, Devel) << "startOfActivity " << activity.mId << ENDM;
-
-  // We clean any histograms that could have been filled in previous runs.
-  mHistogram->Reset();
-
-  // This creates and registers a histogram for publication at the end of each cycle until and including the end of run.
-  // Typically you may create and register a histogram here if you require Activity information for binning or decoration.
-  // Since ROOT does not respond well to having two histograms with the same name in the memory,
-  // we invoke the reset() to first delete the object that could remained from a previous run.
-
-  // Example of retrieving a custom parameter based on the run type + beam type available in Activity
-  // std::string parameter;
-  // first we try for the current activity. It returns an optional.
-  // if (auto param = mCustomParameters.atOptional("myOwnKey", activity)) {
-    // parameter = param.value(); // we got a value
-  // } else {
-    // we did not get a value. We ask for the "default" runtype and beamtype and we specify a default return value.
-    // parameter = mCustomParameters.atOrDefaultValue("myOwnKey", "some default");
-  // }
+  mHistColGloMeanTime->Reset();
+  mHistTime2Ch->Reset();
+  mHistChannel->Reset();
+  mHistChStat->Reset();
+  mHistAvgTime->Reset();
+  mHistAvgAmpl->Reset();
+  mHistSumAmp->Reset();
+  mHistAmpl2Ch->Reset();
+  mHistTrigger->Reset();
 }
 
 void RecPointsQcTask::startOfCycle()
@@ -102,41 +110,66 @@ void RecPointsQcTask::monitorData(o2::framework::ProcessingContext& ctx)
 	auto recpoints = ctx.inputs().get<gsl::span<o2::fv0::RecPoints>>("recpoints");
   auto channels = ctx.inputs().get<gsl::span<o2::fv0::ChannelDataFloat>>("channels");
 
-  for (const auto& recpoint : recpoints) {
-    mHistogram->Fill(recpoint.getCollisionGlobalMeanTime());
+  for (const auto& recpoint : recpoints) 
+	{
+    mHistColGloMeanTime->Fill(recpoint.getCollisionGlobalMeanTime());
+		o2::fit::Triggers triggersignals = recpoint.getTrigger() ;
+		// std::cerr << "----------> MB: " << triggersignals.getOrA() << 
+													 // "\tOR: " << triggersignals.getOrAOut() << 
+													 // "\tCN: " << triggersignals.getTrgNChan() << 
+													 // "\tCH: " << triggersignals.getTrgCharge() << 
+													 // "\tIR: " << triggersignals.getOrAIn() << 
+													 // "\tLa: " << triggersignals.getLaser() <<
+													 // "\tOB: " << triggersignals.getOutputsAreBlocked() <<
+													 // "\tDV: " << triggersignals.getDataIsValid() << std::endl;
+		
+		if(triggersignals.getOrA()) {
+			mHistTrigger->Fill(1);
+		}
+		if(triggersignals.getOrAOut()) {
+			mHistTrigger->Fill(2);
+		}
+		if(triggersignals.getTrgNChan()) {
+			mHistTrigger->Fill(3);
+		}
+		if(triggersignals.getTrgCharge()) {
+			mHistTrigger->Fill(4);
+		}
+		if(triggersignals.getOrAIn()) {
+			mHistTrigger->Fill(5);
+		}
+		if(triggersignals.getLaser()) {
+			mHistTrigger->Fill(6);
+		}
+		if(triggersignals.getOutputsAreBlocked()) {
+			mHistTrigger->Fill(7);
+		}
+		if(triggersignals.getDataIsValid()) {
+			mHistTrigger->Fill(8);
+		}
+		
+		const auto& vecChData = recpoint.getBunchChannelData(channels);
+		int numCh = vecChData.size();
+		mHistChannel->Fill(numCh);
+		double sumTime = 0.;
+		double sumAmpl = 0.;
+    for (const auto& chData : vecChData) 
+		{
+			double time = static_cast<Double_t>(chData.time) ;
+			double ampl = static_cast<Double_t>(chData.charge) ;
+			double channel = static_cast<Double_t>(chData.channel) ;
+			sumTime += time;
+			sumAmpl += ampl;
+			mHistChStat->Fill( channel );
+			mHistTime2Ch->Fill( channel , time );
+			mHistAmpl2Ch->Fill( channel , ampl );
+    }
+		
+		mHistSumAmp->Fill( sumAmpl );
+		mHistAvgTime->Fill( sumTime / numCh );
+		mHistAvgAmpl->Fill( sumAmpl / numCh );
   }
 	
-  // THIS FUNCTION BODY IS AN EXAMPLE. PLEASE REMOVE EVERYTHING YOU DO NOT NEED.
-
-  // In this function you can access data inputs specified in the JSON config file.
-  // Typically, you should have asked for data inputs as a direct data source or as a data sampling policy.
-  // In both cases you probably used a query such as:
-  //   "query": "data:TST/RAWDATA/0"
-  // which follows the format <binding>:<dataOrigin>/<dataDescription>[/<subSpecification]
-  // Usually inputs should be accessed by their bindings:
-  // auto randomData = ctx.inputs().get("data");
-  // If you know what type the data is, you can specify it as such:
-  // auto channels = ctx.inputs().get<gsl::span<o2::fdd::ChannelData>>("channels");
-  // auto digits = ctx.inputs().get<gsl::span<o2::fdd::Digit>>("digits");
-
-  // In our case we will access the header and the payload as a raw array of bytes
-  // const auto* header = o2::framework::DataRefUtils::getHeader<header::DataHeader*>(randomData);
-  // auto payloadSize = header->payloadSize;
-
-  // as an example, let's fill the histogram A with payload sizes and histogram B with the value in the first byte
-
-  // One can find some examples of using InputRecord at:
-  // https://github.com/AliceO2Group/AliceO2/blob/dev/Framework/Core/README.md#using-inputs---the-inputrecord-api
-  //
-  // One can also iterate over all inputs in a loop:
-  // for (const framework::DataRef& input : framework::InputRecordWalker(ctx.inputs())) {
-    // do something with input
-		// mHistogram->Fill(payloadSize);
-  // }
-  // To know how to access CCDB objects, please refer to:
-  // https://github.com/AliceO2Group/QualityControl/blob/master/doc/Advanced.md#accessing-objects-in-ccdb
-  // for GRP objects in particular:
-  // https://github.com/AliceO2Group/QualityControl/blob/master/doc/Advanced.md#access-grp-objects-with-grp-geom-helper
 }
 
 void RecPointsQcTask::endOfCycle()
@@ -157,9 +190,34 @@ void RecPointsQcTask::reset()
 
   // Clean all the monitor objects here.
   ILOG(Debug, Devel) << "Resetting the histograms" << ENDM;
-  if (mHistogram) {
-    mHistogram->Reset();
+  if (mHistColGloMeanTime) {
+    mHistColGloMeanTime->Reset();
   }
+	if (mHistTime2Ch) {
+    mHistTime2Ch->Reset();
+  }
+	if (mHistChannel) {
+    mHistChannel->Reset();
+  }
+	if (mHistChStat) {
+    mHistChStat->Reset();
+  }
+	if (mHistAvgTime) {
+    mHistAvgTime->Reset();
+  }
+	if (mHistAvgAmpl) {
+    mHistAvgAmpl->Reset();
+  }
+	if (mHistSumAmp) {
+    mHistSumAmp->Reset();
+  }
+	if (mHistAmpl2Ch) {
+    mHistAmpl2Ch->Reset();
+  }
+	if (mHistTrigger) {
+    mHistTrigger->Reset();
+  }
+	
 }
 
 } // namespace o2::quality_control_modules::fv0

@@ -38,6 +38,7 @@
 #include <TH2.h>
 #include <TList.h>
 #include <Rtypes.h>
+#include "FV0Base/Constants.h"
 
 class TH1F;
 
@@ -50,6 +51,9 @@ namespace o2::quality_control_modules::fv0
 /// \author My Name
 class RecPointsQcTask final : public TaskInterface
 {
+	constexpr static std::size_t sNCHANNELS_FV0 = o2::fv0::Constants::nFv0Channels;
+	constexpr static std::size_t sNCHANNELS_FV0_PLUSREF = o2::fv0::Constants::nFv0ChannelsPlusRef;
+	
 	public:
 		/// \brief Constructor
 		RecPointsQcTask() = default;
@@ -64,9 +68,21 @@ class RecPointsQcTask final : public TaskInterface
 		void endOfCycle() override;
 		void endOfActivity(const Activity& activity) override;
 		void reset() override;
+		using Detector_t = o2::quality_control_modules::fit::detectorFIT::DetectorFV0;
 
 	private:
-		std::unique_ptr<TH1F> mHistogram = nullptr;
+		const char * triggerNames[8] = {"MinBias","OuterRing","NChannels","Charge","InnerRing","Laser","OuputsAreBlocked","DataIsValid"};
+		std::unique_ptr<TH1F> mHistColGloMeanTime = nullptr;
+		std::unique_ptr<TH2F> mHistTime2Ch = nullptr;
+		std::unique_ptr<TH1I> mHistChannel = nullptr;
+		std::unique_ptr<TH1I> mHistChStat = nullptr;
+		std::unique_ptr<TH1I> mHistAvgTime = nullptr;
+		std::unique_ptr<TH1I> mHistAvgAmpl = nullptr;
+		std::unique_ptr<TH1I> mHistSumAmp = nullptr;
+		std::unique_ptr<TH2F> mHistAmpl2Ch = nullptr;
+		std::unique_ptr<TH1F> mHistTrigger = nullptr;
+
+		typename Detector_t::TrgMap_t mTechMapTrgBits = Detector_t::sMapTechTrgBits;
 };
 
 } // namespace o2::quality_control_modules::fv0
