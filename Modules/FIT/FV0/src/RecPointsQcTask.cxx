@@ -57,6 +57,8 @@ void RecPointsQcTask::initialize(o2::framework::InitContext& /*ctx*/)
 	//	Done --> * ChannelID stat TH1I
 	// * Triggers from TCM
 	
+  mHistFirstTime = std::make_unique<TH1F>("FirstTime", "FV0 first time", 400, -2000, 2000);
+  mHistSelectedMeanTime = std::make_unique<TH1F>("SelectedMeanTime", "FV0 selected collision time", 400, -2000, 2000);
   mHistColGloMeanTime = std::make_unique<TH1F>("CollisionGlobalMeanTime", "FV0 global collision time", 400, -2000, 2000);
 	mHistTime2Ch = std::make_unique<TH2F>("TimePerChannel", "FV0 Time vs Channel;Channel;Time (ps)", sNCHANNELS_FV0_PLUSREF, 0, sNCHANNELS_FV0_PLUSREF, 4100, -2050, 2050);
 	mHistChannel = std::make_unique<TH1I>("ChannelOccupancy", "FV0 Number of channels;N_{ch};", 48, 0, 48);
@@ -65,7 +67,7 @@ void RecPointsQcTask::initialize(o2::framework::InitContext& /*ctx*/)
 	mHistAvgAmpl = std::make_unique<TH1I>("AvgAmpl", "FV0 Average amplitude ;", 1000, 0, 1000);
 	mHistSumAmp = std::make_unique<TH1I>("SumAmp", "FV0 sum of amplitude ;", 10000, 0, 10000);
 	mHistAmpl2Ch = std::make_unique<TH2F>("AmplPerChannel", "FV0 Ampl vs Channel;Channel;Amplitude", sNCHANNELS_FV0_PLUSREF, 0, sNCHANNELS_FV0_PLUSREF, 2000, 0, 2000);
-	mHistTrigger = std::make_unique<TH1F>("TriggerSignals", "Triggers from TCM ;", 8, 0.5, 8.5);
+	mHistTrigger = std::make_unique<TH1F>("TriggerSignals", "Triggers signals ;", 8, 0.5, 8.5);
   mHistTime2Ch->SetOption("colz");
   mHistAmpl2Ch->SetOption("colz");
 	
@@ -73,6 +75,8 @@ void RecPointsQcTask::initialize(o2::framework::InitContext& /*ctx*/)
     mHistTrigger->GetXaxis()->SetBinLabel(entry.first + 1, entry.second.c_str());
 	}
 	
+  getObjectsManager()->startPublishing(mHistFirstTime.get());
+  getObjectsManager()->startPublishing(mHistSelectedMeanTime.get());
   getObjectsManager()->startPublishing(mHistColGloMeanTime.get());
 	getObjectsManager()->startPublishing(mHistTime2Ch.get());
 	getObjectsManager()->startPublishing(mHistChannel.get());
@@ -86,6 +90,8 @@ void RecPointsQcTask::initialize(o2::framework::InitContext& /*ctx*/)
 
 void RecPointsQcTask::startOfActivity(const Activity& activity)
 {
+  mHistFirstTime->Reset();
+  mHistSelectedMeanTime->Reset();
   mHistColGloMeanTime->Reset();
   mHistTime2Ch->Reset();
   mHistChannel->Reset();
@@ -112,7 +118,9 @@ void RecPointsQcTask::monitorData(o2::framework::ProcessingContext& ctx)
 
   for (const auto& recpoint : recpoints) 
 	{
+    mHistFirstTime->Fill(recpoint.getCollisionFirstTime());
     mHistColGloMeanTime->Fill(recpoint.getCollisionGlobalMeanTime());
+    mHistSelectedMeanTime->Fill(recpoint.getCollisionSelectedMeanTime());
 		o2::fit::Triggers triggersignals = recpoint.getTrigger() ;
 		// std::cerr << "----------> MB: " << triggersignals.getOrA() << 
 													 // "\tOR: " << triggersignals.getOrAOut() << 
@@ -190,7 +198,14 @@ void RecPointsQcTask::reset()
 
   // Clean all the monitor objects here.
   ILOG(Debug, Devel) << "Resetting the histograms" << ENDM;
-  if (mHistColGloMeanTime) {
+	
+  if (mHistFirstTime) {
+    mHistFirstTime->Reset();
+  }
+	if (mHistSelectedMeanTime) {
+    mHistSelectedMeanTime->Reset();
+  }
+	if (mHistColGloMeanTime) {
     mHistColGloMeanTime->Reset();
   }
 	if (mHistTime2Ch) {

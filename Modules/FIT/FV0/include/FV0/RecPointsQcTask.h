@@ -71,7 +71,8 @@ class RecPointsQcTask final : public TaskInterface
 		using Detector_t = o2::quality_control_modules::fit::detectorFIT::DetectorFV0;
 
 	private:
-		const char * triggerNames[8] = {"MinBias","OuterRing","NChannels","Charge","InnerRing","Laser","OuputsAreBlocked","DataIsValid"};
+		std::unique_ptr<TH1F> mHistFirstTime = nullptr;
+		std::unique_ptr<TH1F> mHistSelectedMeanTime = nullptr;
 		std::unique_ptr<TH1F> mHistColGloMeanTime = nullptr;
 		std::unique_ptr<TH2F> mHistTime2Ch = nullptr;
 		std::unique_ptr<TH1I> mHistChannel = nullptr;
