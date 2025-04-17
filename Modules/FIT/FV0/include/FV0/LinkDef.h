@@ -12,7 +12,7 @@
 #pragma link C++ class o2::quality_control_modules::fv0::OutOfBunchCollFeeModulesCheck + ;
 //#pragma link C++ class o2::quality_control_modules::fv0::CalibrationTask + ;
 //#pragma link C++ class o2::quality_control_modules::fv0::ChannelTimeCalibrationCheck + ;
-
+#pragma link C++ class o2::quality_control_modules::fv0::RecPointsQcTask + ;
 #pragma link C++ class o2::quality_control_modules::fv0::DigitQcTaskLaser + ;
 #pragma link C++ class o2::quality_control_modules::fv0::TH1ReductorLaser + ;
 #endif
