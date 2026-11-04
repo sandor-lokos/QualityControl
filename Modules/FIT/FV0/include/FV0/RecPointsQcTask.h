@@ -11,89 +11,74 @@
 
 ///
 /// \file   RecPointsQcTask.h
+/// \brief Definition of the FV0 reconstructed-points QC task.
 /// \author Sandor Lokos, sandor.lokos@cern.ch
 ///
 
 #ifndef QC_MODULE_FV0_FV0RECPOINTSQCTASK_H
 #define QC_MODULE_FV0_FV0RECPOINTSQCTASK_H
 
-#include "QualityControl/TaskInterface.h"
+#include <cstddef>
 #include <memory>
-#include <Framework/InputRecord.h>
 
-#include "QualityControl/QcInfoLogger.h"
-#include <DataFormatsFV0/RecPoints.h>
-#include <DataFormatsFV0/ChannelData.h>
-#include "QualityControl/TaskInterface.h"
-#include "FITCommon/DetectorFIT.h"
-#include <memory>
-#include <regex>
-#include <set>
-#include <map>
-#include <string>
-#include <array>
-#include <type_traits>
-#include <boost/algorithm/string.hpp>
 #include <TH1.h>
 #include <TH2.h>
-#include <TList.h>
-#include <Rtypes.h>
+
+#include "FITCommon/DetectorFIT.h"
 #include "FV0Base/Constants.h"
-
-class TH1F;
-
-using namespace o2::quality_control::core;
+#include "QualityControl/TaskInterface.h"
 
 namespace o2::quality_control_modules::fv0
 {
 
-/// \brief Example Quality Control Task
-/// \author My Name
-class RecPointsQcTask final : public TaskInterface
+/// \brief Monitors reconstructed FV0 channel times, amplitudes, and trigger information.
+/// \author Sandor Lokos, sandor.lokos@cern.ch
+class RecPointsQcTask final : public o2::quality_control::core::TaskInterface
 {
-	constexpr static std::size_t sNCHANNELS_FV0 = o2::fv0::Constants::nFv0Channels;
-	constexpr static std::size_t sNCHANNELS_FV0_PLUSREF = o2::fv0::Constants::nFv0ChannelsPlusRef;
-	
-	public:
-		/// \brief Constructor
-		RecPointsQcTask() = default;
-		/// Destructor
-		~RecPointsQcTask() override;
+  constexpr static std::size_t sNCHANNELS_FV0 = o2::fv0::Constants::nFv0Channels;
+  constexpr static std::size_t sNCHANNELS_FV0_PLUSREF = o2::fv0::Constants::nFv0ChannelsPlusRef;
 
-		// Definition of the methods for the template method pattern
-		void initialize(o2::framework::InitContext& ctx) override;
-		void startOfActivity(const Activity& activity) override;
-		void startOfCycle() override;
-		void monitorData(o2::framework::ProcessingContext& ctx) override;
-		void endOfCycle() override;
-		void endOfActivity(const Activity& activity) override;
-		void reset() override;
-		using Detector_t = o2::quality_control_modules::fit::detectorFIT::DetectorFV0;
+ public:
+  /// \brief Constructor
+  RecPointsQcTask() = default;
+  /// Destructor
+  ~RecPointsQcTask() override;
 
-	private:
-		std::unique_ptr<TH2F> mHistTime2Ch = nullptr;
-		std::unique_ptr<TH1F> mHistFraction = nullptr;
-		std::unique_ptr<TH1I> mHistChannel = nullptr;
-		std::unique_ptr<TH1I> mHistChStat = nullptr;
-		std::unique_ptr<TH1I> mHistAvgTime = nullptr;
-		std::unique_ptr<TH1I> mHistAvgAmpl = nullptr;
-		std::unique_ptr<TH1I> mHistSumAmp = nullptr;
-		std::unique_ptr<TH2F> mHistAmpl2Ch = nullptr;
-		std::unique_ptr<TH1F> mHistTrigger = nullptr;
-		std::unique_ptr<TH2F> mHistTrigBits2Ch = nullptr;
-		std::unique_ptr<TH2F> mChanTrigBitsCorr = nullptr;
-		std::unique_ptr<TH1F> mIntChanTrigBits = nullptr;
-		typename Detector_t::TrgMap_t mTechMapTrgBits = Detector_t::sMapTechTrgBits;
-		const char * channelTrigBits[8] = { "kNumberADC",
-																			  "kIsDoubleEvent",
-																			  "kIsTimeInfoNOTvalid",
-																			  "kIsCFDinADCgate",
-																			  "kIsTimeInfoLate",
-																			  "kIsAmpHigh",
-																			  "kIsEventInTVDC",
-																			  "kIsTimeInfoLost"
-																			};
-																			
+  /// Creates and publishes the monitoring histograms.
+  /// \param ctx Framework initialization context.
+  void initialize(o2::framework::InitContext& ctx) override;
+  /// Resets the monitoring histograms for a new activity.
+  /// \param activity Activity being started.
+  void startOfActivity(const o2::quality_control::core::Activity& activity) override;
+  /// Starts a monitoring cycle.
+  void startOfCycle() override;
+  /// Processes reconstructed FV0 points and their channel data.
+  /// \param ctx Framework context providing the recpoints and channels inputs.
+  void monitorData(o2::framework::ProcessingContext& ctx) override;
+  /// Ends a monitoring cycle.
+  void endOfCycle() override;
+  /// Ends the current activity.
+  /// \param activity Activity being ended.
+  void endOfActivity(const o2::quality_control::core::Activity& activity) override;
+  /// Resets the monitoring histograms.
+  void reset() override;
+  using Detector_t = o2::quality_control_modules::fit::detectorFIT::DetectorFV0;
+
+ private:
+  std::unique_ptr<TH2F> mHistTime2Ch;                                          ///< Time distribution versus channel.
+  std::unique_ptr<TH1F> mHistFraction;                                         ///< Histogram divided by ChannelStat after each monitorData call.
+  std::unique_ptr<TH1I> mHistChannel;                                          ///< Channel multiplicity per reconstructed point.
+  std::unique_ptr<TH1I> mHistChStat;                                           ///< Number of entries per channel.
+  std::unique_ptr<TH1I> mHistAvgTime;                                          ///< Average channel time per reconstructed point.
+  std::unique_ptr<TH1I> mHistAvgAmpl;                                          ///< Average channel amplitude per reconstructed point.
+  std::unique_ptr<TH1I> mHistSumAmp;                                           ///< Summed channel amplitude per reconstructed point.
+  std::unique_ptr<TH2F> mHistAmpl2Ch;                                          ///< Amplitude distribution versus channel.
+  std::unique_ptr<TH1F> mHistTrigger;                                          ///< Counts of event-trigger signals.
+  std::unique_ptr<TH2F> mHistTrigBits2Ch;                                      ///< Complete channel-status word versus channel.
+  std::unique_ptr<TH2F> mChanTrigBitsCorr;                                     ///< Reserved channel-trigger correlation histogram.
+  std::unique_ptr<TH1F> mIntChanTrigBits;                                      ///< Published channel-trigger histogram; no filling is currently implemented.
+  typename Detector_t::TrgMap_t mTechMapTrgBits = Detector_t::sMapTechTrgBits; ///< Labels for FV0 event-trigger bits.
+  typename Detector_t::TrgMap_t mMapChannelTrigBits = Detector_t::sMapPMbits;  ///< Common FV0 channel-status bit labels.
 };
 
 } // namespace o2::quality_control_modules::fv0
