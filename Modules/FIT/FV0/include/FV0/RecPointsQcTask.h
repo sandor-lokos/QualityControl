@@ -66,7 +66,8 @@ class RecPointsQcTask final : public o2::quality_control::core::TaskInterface
 
  private:
   std::unique_ptr<TH2F> mHistTime2Ch;                                          ///< Time distribution versus channel.
-  std::unique_ptr<TH1F> mHistFraction;                                         ///< Histogram divided by ChannelStat after each monitorData call.
+  std::unique_ptr<TH1F> mHistFraction;                                         ///< Fraction of channel entries passing the CFD gate and status selection.
+  std::unique_ptr<TH1I> mHistCfdGateCounts;                                    ///< Unpublished counts for TimeInWindowFraction.
   std::unique_ptr<TH1I> mHistChannel;                                          ///< Channel multiplicity per reconstructed point.
   std::unique_ptr<TH1I> mHistChStat;                                           ///< Number of entries per channel.
   std::unique_ptr<TH1I> mHistAvgTime;                                          ///< Average channel time per reconstructed point.

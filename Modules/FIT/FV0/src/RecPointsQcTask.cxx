@@ -44,7 +44,6 @@ void RecPointsQcTask::initialize(o2::framework::InitContext& /*ctx*/)
   mHistFraction = helper::registerHist<TH1F>(getObjectsManager(), PublicationPolicy::Forever, "", "TimeInWindowFraction", "FV0 Fraction of events with CFD in time gate(-192,192) vs ChannelID ;Channel", sNCHANNELS_FV0_PLUSREF, 0, sNCHANNELS_FV0_PLUSREF);
   mHistChannel = helper::registerHist<TH1I>(getObjectsManager(), PublicationPolicy::Forever, "", "ChannelOccupancy", "FV0 Number of channels;N_{ch};", sNCHANNELS_FV0_PLUSREF, 0, sNCHANNELS_FV0_PLUSREF);
   mHistChStat = helper::registerHist<TH1I>(getObjectsManager(), PublicationPolicy::Forever, "", "ChannelStat", "FV0 ChannelID stat;N_{ch};", sNCHANNELS_FV0_PLUSREF, 0, sNCHANNELS_FV0_PLUSREF);
-  mHistAvgTime = helper::registerHist<TH1I>(getObjectsManager(), PublicationPolicy::Forever, "", "AvgTime", "FV0 Average time ;", 240, -30, 30);
   mHistAvgAmpl = helper::registerHist<TH1I>(getObjectsManager(), PublicationPolicy::Forever, "", "AvgAmpl", "FV0 Average amplitude ;", 1000, 0, 1000);
   mHistSumAmp = helper::registerHist<TH1I>(getObjectsManager(), PublicationPolicy::Forever, "", "SumAmp", "FV0 sum of amplitude ;", 10000, 0, 10000);
   mHistAmpl2Ch = helper::registerHist<TH2F>(getObjectsManager(), PublicationPolicy::Forever, "", "AmplPerChannel", "FV0 Ampl vs Channel;Channel;Amplitude", sNCHANNELS_FV0_PLUSREF, 0, sNCHANNELS_FV0_PLUSREF, 2000, 0, 2000);
@@ -54,6 +53,13 @@ void RecPointsQcTask::initialize(o2::framework::InitContext& /*ctx*/)
   mHistTime2Ch->SetOption("colz");
   mHistAmpl2Ch->SetOption("colz");
   mHistTrigBits2Ch->SetOption("colz");
+
+  // Use the FIT factory to create the task's private numerator.
+  mHistCfdGateCounts = helper::makeHist<TH1I>("CfdGateCounts", "", sNCHANNELS_FV0_PLUSREF, 0, sNCHANNELS_FV0_PLUSREF);
+  // Detach from ROOT's directory so the task controls the histogram's lifetime.
+  mHistCfdGateCounts->SetDirectory(nullptr);
+
+	mHistAvgTime = helper::registerHist<TH1I>(getObjectsManager(), PublicationPolicy::Forever, "", "AvgTime", "FV0 Average time ;", 240, -30, 30);
 
   for (const auto& entry : mTechMapTrgBits) {
     mHistTrigger->GetXaxis()->SetBinLabel(entry.first + 1, entry.second.c_str());
@@ -67,7 +73,9 @@ void RecPointsQcTask::startOfActivity(const Activity& /*activity*/)
   mHistTime2Ch->Reset();
   mHistFraction->Reset();
   mHistChannel->Reset();
+  // Start the activity with an empty numerator and denominator.
   mHistChStat->Reset();
+  mHistCfdGateCounts->Reset();
   mHistAvgTime->Reset();
   mHistAvgAmpl->Reset();
   mHistSumAmp->Reset();
@@ -115,12 +123,13 @@ void RecPointsQcTask::monitorData(o2::framework::ProcessingContext& ctx)
       mHistTrigBits2Ch->Fill(channel, chainQTC);
       sumTime += time;
       sumAmpl += ampl;
+      // Accumulate raw counts across all input batches.
       mHistChStat->Fill(channel);
 
       // Require the CFD-in-ADC-gate flag, accept either ADC chain,
       // and require all other status flags to be clear.
       if ((chainQTC & ~AdcChainMask) == CfdGateMask) {
-        mHistFraction->Fill(channel);
+        mHistCfdGateCounts->Fill(channel);
       }
 
       mHistTime2Ch->Fill(channel, time);
@@ -128,15 +137,21 @@ void RecPointsQcTask::monitorData(o2::framework::ProcessingContext& ctx)
     }
 
     mHistSumAmp->Fill(sumAmpl);
-    mHistAvgTime->Fill(sumTime / numCh);
-    mHistAvgAmpl->Fill(sumAmpl / numCh);
+
+    // A reconstructed point with no channels has no defined average.
+    if (numCh > 0) {
+      mHistAvgTime->Fill(sumTime / numCh);
+      mHistAvgAmpl->Fill(sumAmpl / numCh);
+    }
   }
-  mHistFraction->Divide(mHistChStat.get());
 }
 
 void RecPointsQcTask::endOfCycle()
 {
   ILOG(Debug, Devel) << "endOfCycle" << ENDM;
+  // Compute the fraction just before publication. The two-input Divide
+  // writes the ratio into mHistFraction and preserves both raw counts.
+  mHistFraction->Divide(mHistCfdGateCounts.get(), mHistChStat.get());
 }
 
 void RecPointsQcTask::endOfActivity(const Activity& /*activity*/)
@@ -146,7 +161,7 @@ void RecPointsQcTask::endOfActivity(const Activity& /*activity*/)
 
 void RecPointsQcTask::reset()
 {
-  // Clean all the monitor objects here.
+  // Clear the published histograms and the private numerator
   ILOG(Debug, Devel) << "Resetting the histograms" << ENDM;
 
   if (mHistTime2Ch) {
@@ -158,8 +173,12 @@ void RecPointsQcTask::reset()
   if (mHistChannel) {
     mHistChannel->Reset();
   }
+  // Reset both counters together so they cover the same accumulation interval.
   if (mHistChStat) {
     mHistChStat->Reset();
+  }
+  if (mHistCfdGateCounts) {
+    mHistCfdGateCounts->Reset();
   }
   if (mHistAvgTime) {
     mHistAvgTime->Reset();
