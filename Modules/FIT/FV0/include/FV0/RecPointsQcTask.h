@@ -20,6 +20,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <array>
 
 #include <TH1.h>
 #include <TH2.h>
@@ -80,6 +81,7 @@ class RecPointsQcTask final : public o2::quality_control::core::TaskInterface
   std::unique_ptr<TH1F> mIntChanTrigBits;                                      ///< Published channel-trigger histogram; no filling is currently implemented.
   typename Detector_t::TrgMap_t mTechMapTrgBits = Detector_t::sMapTechTrgBits; ///< Labels for FV0 event-trigger bits.
   typename Detector_t::TrgMap_t mMapChannelTrigBits = Detector_t::sMapPMbits;  ///< Common FV0 channel-status bit labels.
+	std::array<std::unique_ptr<TH2F>, sNCHANNELS_FV0_PLUSREF> mHistTimeVsAmpl;   /// Time versus amplitude for each channel, including the reference channel.
 };
 
 } // namespace o2::quality_control_modules::fv0

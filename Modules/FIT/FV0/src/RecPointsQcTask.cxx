@@ -19,6 +19,7 @@
 
 #include <gsl/span>
 #include <cstdint>
+#include <string>
 
 #include "DataFormatsFIT/Triggers.h"
 #include "DataFormatsFV0/ChannelData.h"
@@ -66,6 +67,12 @@ void RecPointsQcTask::initialize(o2::framework::InitContext& /*ctx*/)
   for (const auto& entry : mTechMapTrgBits) {
     mHistTrigger->GetXaxis()->SetBinLabel(entry.first + 1, entry.second.c_str());
   }
+  
+	for (std::size_t channel = 0; channel < mHistTimeVsAmpl.size(); ++channel) {
+    const auto channelSuffix = std::to_string(channel);
+    mHistTimeVsAmpl[channel] = helper::registerHist<TH2F>(getObjectsManager(), PublicationPolicy::Forever, "", "TimeVsAmplitudeChannel" + channelSuffix, "FV0 time vs amplitude, channel " + channelSuffix + ";Amplitude;Time (ns)", 2000, 0, 2000, 240, -30, 30);
+    mHistTimeVsAmpl[channel]->SetOption("colz");
+}
 
   // getObjectsManager()->startPublishing(mChanTrigBitsCorr.get());
 }
@@ -85,6 +92,12 @@ void RecPointsQcTask::startOfActivity(const Activity& /*activity*/)
   mHistTrigger->Reset();
   mHistTrigBits2Ch->Reset();
   mIntChanTrigBits->Reset();
+  // Clear all per-channel time-amplitude correlations.
+  for (auto& hist : mHistTimeVsAmpl) {
+    if (hist) {
+      hist->Reset();
+    }
+  }
 }
 
 void RecPointsQcTask::startOfCycle()
@@ -139,6 +152,10 @@ void RecPointsQcTask::monitorData(o2::framework::ProcessingContext& ctx)
 
       mHistTime2Ch->Fill(channel, time);
       mHistAmpl2Ch->Fill(channel, ampl);
+			// Fill the correlation belonging to this channel.
+      if (channel >= 0 && static_cast<std::size_t>(channel) < mHistTimeVsAmpl.size()) {
+        mHistTimeVsAmpl[channel]->Fill(ampl, time);
+      }
     }
 
     mHistSumAmp->Fill(sumAmpl);
@@ -205,6 +222,12 @@ void RecPointsQcTask::reset()
   }
   if (mIntChanTrigBits) {
     mIntChanTrigBits->Reset();
+  }
+  // Clear all per-channel time-amplitude correlations.
+  for (auto& hist : mHistTimeVsAmpl) {
+    if (hist) {
+      hist->Reset();
+    }
   }
 }
 
