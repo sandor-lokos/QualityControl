@@ -61,7 +61,7 @@ void RecPointsQcTask::initialize(o2::framework::InitContext& /*ctx*/)
   // Detach from ROOT's directory so the task controls the histogram's lifetime.
   mHistCfdGateCounts->SetDirectory(nullptr);
 
-	mHistAvgTime = helper::registerHist<TH1I>(getObjectsManager(), PublicationPolicy::Forever, "", "AvgTime", "FV0 Average time ;", 240, -30, 30);
+  mHistAvgTime = helper::registerHist<TH1I>(getObjectsManager(), PublicationPolicy::Forever, "", "AvgTime", "FV0 Average time ;", 240, -30, 30);
 
   for (const auto& entry : mTechMapTrgBits) {
     mHistTrigger->GetXaxis()->SetBinLabel(entry.first + 1, entry.second.c_str());
