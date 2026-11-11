@@ -18,8 +18,10 @@
 #include "FV0/RecPointsQcTask.h"
 
 #include <gsl/span>
+#include <cstdint>
 
 #include "DataFormatsFIT/Triggers.h"
+#include "DataFormatsFV0/ChannelData.h"
 #include "DataFormatsFV0/RecPoints.h"
 #include "FITCommon/HelperHist.h"
 #include "Framework/InputRecord.h"
@@ -111,9 +113,6 @@ void RecPointsQcTask::monitorData(o2::framework::ProcessingContext& ctx)
     double sumTime = 0.;
     double sumAmpl = 0.;
 
-    constexpr int AdcChainMask = 1 << o2::fv0::ChannelData::kNumberADC;
-    constexpr int CfdGateMask = 1 << o2::fv0::ChannelData::kIsCFDinADCgate;
-
     for (const auto& chData : vecChData) {
       int chainQTC = (int)chData.adcId;
       double time = static_cast<Double_t>(chData.time);
@@ -123,12 +122,18 @@ void RecPointsQcTask::monitorData(o2::framework::ProcessingContext& ctx)
       mHistTrigBits2Ch->Fill(channel, chainQTC);
       sumTime += time;
       sumAmpl += ampl;
+
       // Accumulate raw counts across all input batches.
       mHistChStat->Fill(channel);
 
-      // Require the CFD-in-ADC-gate flag, accept either ADC chain,
-      // and require all other status flags to be clear.
-      if ((chainQTC & ~AdcChainMask) == CfdGateMask) {
+      // adcId contains the full channel-status word.
+      // Copy it into ChannelData to use its boolean flag accessor.
+      o2::fv0::ChannelData channelFlags;
+      channelFlags.setFlag(static_cast<std::uint8_t>(chData.adcId));
+
+      // Count entries with the CFD-in-ADC-gate flag set.
+      const bool cfdcheck = channelFlags.getFlag(o2::fv0::ChannelData::kIsCFDinADCgate);
+      if (cfdcheck) {
         mHistCfdGateCounts->Fill(channel);
       }
 
